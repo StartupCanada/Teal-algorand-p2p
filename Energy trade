@@ -1,0 +1,112 @@
+#pragma version 4
+// Energy Trading Smart Contract
+
+// Contract Owner Address
+txn ApplicationID
+int 1
+==
+global CreatorAddress
+addr G_creator_address
+==
+&&
+
+// Energy Price per kWh in microAlgos
+int G_price_per_kwh
+
+// Storage location for total energy produced and consumed
+int G_total_energy_produced
+int G_total_energy_consumed
+
+// Storage location for user balances
+txn Sender
+byte G_sender_balance
+gtxns 0
+bnz update_balances
+
+// Check if the transaction is signed by the contract owner or the sender
+txn Sender
+addr G_sender_address
+==
+global CreatorAddress
+addr G_creator_address
+==
+||
+bnz approved
+
+// Update the sender balance and the total energy produced and consumed
+update_balances:
+txn Amount
+int G_amount
++
+store G_sender_balance
+
+txn ApplicationArgs 0
+int 1
+==
+bnz energy_production
+
+txn ApplicationArgs 0
+int 2
+==
+bnz energy_consumption
+
+// Update the total energy produced
+energy_production:
+txn ApplicationArgs 1
+int G_energy
++
+store G_total_energy_produced
+return
+
+// Update the total energy consumed
+energy_consumption:
+txn ApplicationArgs 1
+int G_energy
++
+store G_total_energy_consumed
+return
+
+// Approve the transaction if the sender has enough balance to buy the energy
+approved:
+int 0
+G_sender_balance
+<
+bnz reject
+
+// Calculate the total price of the energy
+txn ApplicationArgs 0
+int G_energy
+*
+int G_price_per_kwh
+*
+
+// Update the sender balance and the total energy consumed
+txn Sender
+int G_total_price
+-
+store G_sender_balance
+
+G_total_energy_consumed
+txn ApplicationArgs 1
++
+store G_total_energy_consumed
+
+// Return the remaining balance to the sender
+txn Sender
+int G_total_price
+-
+txn Fee
+-
+txn Lease
+-
+txn RekeyTo
+-
+
+// Approve the transaction
+int 1
+return
+
+// Reject the transaction if the sender does not have enough balance
+reject:
+int 0
+return
